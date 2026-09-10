@@ -1,0 +1,6 @@
+{
+  "name": "Image Gallery",
+  "description": "An interactive, responsive image gallery with category filtering, lightbox viewer, search, and image upload.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
