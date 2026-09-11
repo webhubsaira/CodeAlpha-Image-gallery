@@ -208,7 +208,7 @@ export default function App() {
             {viewMode === 'masonry' && (
               <div
                 id="gallery-masonry-grid"
-                className="columns-1 sm:columns-2 md:columns-3 lg:columns-4 gap-4 [column-fill:_balance]"
+                className="columns-1 sm:columns-2 md:columns-3 lg:columns-4 gap-4 [column-fill:balance]"
               >
                 {filteredImages.map((image) => (
                   <div key={image.id} className="break-inside-avoid mb-4">
