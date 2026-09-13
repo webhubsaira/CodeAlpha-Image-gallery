@@ -1,4 +1,7 @@
+import dotenv from 'dotenv';
 import pg from 'pg';
+
+dotenv.config();
 
 const { Pool } = pg;
 
@@ -36,7 +39,7 @@ export const getPool = (): pg.Pool => {
 
 export const query = async (text: string, params?: (string | number | boolean | object | null)[]) => {
   if (!isDbConfigured()) {
-    throw new Error('Database is not configured. Please set POSTGRES_URL or DATABASE_URL.');
+    throw new Error('Database is not configured. Please set POSTGRES_URL or DATABASE_URL in .env file.');
   }
   const pool = getPool();
   return pool.query(text, params);
