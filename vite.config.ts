@@ -2,9 +2,8 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import fs from 'fs';
 import path from 'path';
-import {defineConfig, Plugin} from 'vite';
+import { defineConfig, Plugin } from 'vite';
 
-// LINT.IfChange(aistudio_media_plugin)
 function aistudioMediaPlugin(): Plugin {
   return {
     name: 'vite-plugin-aistudio-media',
@@ -62,21 +61,81 @@ function aistudioMediaPlugin(): Plugin {
     },
   };
 }
-// LINT.ThenChange(//depot/google3/java/com/google/alkali/boq/makersuite/applet_dev_service/templates/initializers/react_theme/vite.config.ts:aistudio_media_plugin)
+
+function apiDevPlugin(): Plugin {
+  return {
+    name: 'vite-plugin-api-dev',
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        if (req.url && req.url.startsWith('/api/')) {
+          const urlPath = req.url.split('?')[0];
+
+          if (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH') {
+            const buffers: Uint8Array[] = [];
+            for await (const chunk of req) {
+              buffers.push(chunk);
+            }
+            const bodyStr = Buffer.concat(buffers).toString('utf-8');
+            try {
+              (req as any).body = bodyStr ? JSON.parse(bodyStr) : {};
+            } catch {
+              (req as any).body = {};
+            }
+          }
+
+          const queryString = req.url.split('?')[1] || '';
+          const urlParams = new URLSearchParams(queryString);
+          const queryObj: Record<string, string> = {};
+          urlParams.forEach((v, k) => {
+            queryObj[k] = v;
+          });
+          (req as any).query = queryObj;
+
+          try {
+            if (urlPath === '/api/images' || urlPath === '/api/images/') {
+              const handler = (await import('./api/images')).default;
+              await handler(req as any, res as any);
+              return;
+            }
+            if (urlPath === '/api/favorites' || urlPath === '/api/favorites/') {
+              const handler = (await import('./api/favorites')).default;
+              await handler(req as any, res as any);
+              return;
+            }
+            if (urlPath === '/api/likes' || urlPath === '/api/likes/') {
+              const handler = (await import('./api/likes')).default;
+              await handler(req as any, res as any);
+              return;
+            }
+            if (urlPath === '/api/init' || urlPath === '/api/init/') {
+              const handler = (await import('./api/init')).default;
+              await handler(req as any, res as any);
+              return;
+            }
+          } catch (err) {
+            console.error('Local API dev plugin error:', err);
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ error: String(err) }));
+            return;
+          }
+        }
+        next();
+      });
+    },
+  };
+}
 
 export default defineConfig(() => {
   return {
-    plugins: [react(), tailwindcss(), aistudioMediaPlugin()],
+    plugins: [react(), tailwindcss(), aistudioMediaPlugin(), apiDevPlugin()],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
       },
     },
     server: {
-      // HMR is disabled in AI Studio via DISABLE_HMR env var.
-      // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',
-      // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
     },
   };
