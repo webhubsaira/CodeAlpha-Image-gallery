@@ -83,6 +83,10 @@ export default async function handler(req: Request, res: Response) {
         ON CONFLICT (id) DO UPDATE SET
           title = EXCLUDED.title,
           url = EXCLUDED.url,
+          thumbnail_url = EXCLUDED.thumbnail_url,
+          category = EXCLUDED.category,
+          photographer = EXCLUDED.photographer,
+          tags = EXCLUDED.tags,
           likes = EXCLUDED.likes;`,
         [
           id,

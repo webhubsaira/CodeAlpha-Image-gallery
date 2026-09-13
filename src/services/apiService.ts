@@ -11,9 +11,12 @@ export const fetchImagesFromDb = async (): Promise<ImageItem[]> => {
       if (Array.isArray(data) && data.length > 0) {
         return data;
       }
+    } else {
+      const errorText = await res.text();
+      console.warn('[API /api/images GET Warning]:', errorText);
     }
-  } catch {
-    // API unavailable or local mode without Postgres
+  } catch (err) {
+    console.warn('[API /api/images GET Error]:', err);
   }
 
   // Fallback to localStorage + initial images
@@ -48,8 +51,14 @@ export const saveImageToDb = async (image: ImageItem): Promise<boolean> => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(image),
     });
-    return res.ok;
-  } catch {
+    if (!res.ok) {
+      const errDetail = await res.text();
+      console.error('[API /api/images POST Error]:', res.status, errDetail);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('[API /api/images POST Network Error]:', err);
     return false;
   }
 };
