@@ -1,11 +1,14 @@
 import dotenv from 'dotenv';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
+import express from 'express';
 import fs from 'fs';
 import path from 'path';
 import { defineConfig, Plugin } from 'vite';
 
 dotenv.config();
+
+const jsonParser = express.json({ limit: '50mb' });
 
 function aistudioMediaPlugin(): Plugin {
   return {
@@ -73,18 +76,9 @@ function apiDevPlugin(): Plugin {
         if (req.url && req.url.startsWith('/api/')) {
           const urlPath = req.url.split('?')[0];
 
-          // Parse POST/PUT JSON body
+          // Parse POST/PUT JSON body using Express JSON parser (up to 50MB for large image payloads)
           if (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH') {
-            const buffers: Uint8Array[] = [];
-            for await (const chunk of req) {
-              buffers.push(chunk);
-            }
-            const bodyStr = Buffer.concat(buffers).toString('utf-8');
-            try {
-              (req as any).body = bodyStr ? JSON.parse(bodyStr) : {};
-            } catch {
-              (req as any).body = {};
-            }
+            await new Promise((resolve) => jsonParser(req as any, res as any, resolve));
           }
 
           // Parse URL Query parameters
