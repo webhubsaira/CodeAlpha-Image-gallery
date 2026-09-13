@@ -9,6 +9,12 @@ import { EmptyState } from './components/EmptyState';
 import { INITIAL_IMAGES } from './data/initialImages';
 import { ImageItem, ImageCategory, ViewMode, SortOption } from './types';
 import { Sparkles, ArrowUpDown } from 'lucide-react';
+import {
+  fetchImagesFromDb,
+  saveImageToDb,
+  fetchFavoritesFromDb,
+  toggleFavoriteInDb,
+} from './services/apiService';
 
 const CATEGORIES: ImageCategory[] = [
   'All',
@@ -21,7 +27,7 @@ const CATEGORIES: ImageCategory[] = [
 ];
 
 export default function App() {
-  // 1. Initial State with LocalStorage hydration
+  // 1. Initial State with LocalStorage hydration & PostgreSQL Async Sync
   const [images, setImages] = useState<ImageItem[]>(() => {
     try {
       const saved = localStorage.getItem('gallery_custom_images');
@@ -56,6 +62,29 @@ export default function App() {
   const [isUploadOpen, setIsUploadOpen] = useState<boolean>(false);
   const [isAiGenerateOpen, setIsAiGenerateOpen] = useState<boolean>(false);
 
+  // Load from PostgreSQL API on mount
+  useEffect(() => {
+    let isMounted = true;
+    async function loadDbData() {
+      const [dbImages, dbFavs] = await Promise.all([
+        fetchImagesFromDb(),
+        fetchFavoritesFromDb(),
+      ]);
+      if (isMounted) {
+        if (dbImages && dbImages.length > 0) {
+          setImages(dbImages);
+        }
+        if (dbFavs && dbFavs.size > 0) {
+          setFavorites(dbFavs);
+        }
+      }
+    }
+    loadDbData();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   // Save favorites to localStorage
   useEffect(() => {
     try {
@@ -76,6 +105,7 @@ export default function App() {
       }
       return next;
     });
+    toggleFavoriteInDb(id);
   }, []);
 
   // Add new image from UploadModal or AI Generator
@@ -90,6 +120,9 @@ export default function App() {
       }
       return updated;
     });
+    // Persist to PostgreSQL database asynchronously
+    saveImageToDb(newImage);
+
     // Switch to category of uploaded/generated image & reset search so the new photo is visible
     setActiveCategory(newImage.category as ImageCategory);
     setSearchQuery('');
