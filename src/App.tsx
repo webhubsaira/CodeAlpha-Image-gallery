@@ -32,8 +32,12 @@ export default function App() {
     try {
       const saved = localStorage.getItem('gallery_custom_images');
       if (saved) {
-        const custom = JSON.parse(saved);
-        return [...custom, ...INITIAL_IMAGES];
+        const custom: ImageItem[] = JSON.parse(saved);
+        if (Array.isArray(custom) && custom.length > 0) {
+          const customIds = new Set(custom.map((img) => img.id));
+          const initialFiltered = INITIAL_IMAGES.filter((img) => !customIds.has(img.id));
+          return [...custom, ...initialFiltered];
+        }
       }
     } catch {
       // ignore
@@ -62,7 +66,7 @@ export default function App() {
   const [isUploadOpen, setIsUploadOpen] = useState<boolean>(false);
   const [isAiGenerateOpen, setIsAiGenerateOpen] = useState<boolean>(false);
 
-  // Load from PostgreSQL API on mount
+  // Load from PostgreSQL API on mount and sync local cache
   useEffect(() => {
     let isMounted = true;
     async function loadDbData() {
@@ -73,6 +77,13 @@ export default function App() {
       if (isMounted) {
         if (dbImages && dbImages.length > 0) {
           setImages(dbImages);
+          // Sync custom photos to localStorage for instant hydration on next refresh
+          try {
+            const customOnly = dbImages.filter((item) => item.isCustom);
+            localStorage.setItem('gallery_custom_images', JSON.stringify(customOnly));
+          } catch {
+            // ignore
+          }
         }
         if (dbFavs && dbFavs.size > 0) {
           setFavorites(dbFavs);
