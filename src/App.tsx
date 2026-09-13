@@ -4,6 +4,7 @@ import { CategoryFilter } from './components/CategoryFilter';
 import { ImageCard } from './components/ImageCard';
 import { LightboxModal } from './components/LightboxModal';
 import { UploadModal } from './components/UploadModal';
+import { AiGenerateModal } from './components/AiGenerateModal';
 import { EmptyState } from './components/EmptyState';
 import { INITIAL_IMAGES } from './data/initialImages';
 import { ImageItem, ImageCategory, ViewMode, SortOption } from './types';
@@ -53,6 +54,7 @@ export default function App() {
   const [sortOption, setSortOption] = useState<SortOption>('popular');
   const [activeLightboxImage, setActiveLightboxImage] = useState<ImageItem | null>(null);
   const [isUploadOpen, setIsUploadOpen] = useState<boolean>(false);
+  const [isAiGenerateOpen, setIsAiGenerateOpen] = useState<boolean>(false);
 
   // Save favorites to localStorage
   useEffect(() => {
@@ -76,7 +78,7 @@ export default function App() {
     });
   }, []);
 
-  // Add new image from UploadModal
+  // Add new image from UploadModal or AI Generator
   const handleAddImage = useCallback((newImage: ImageItem) => {
     setImages((prev) => {
       const updated = [newImage, ...prev];
@@ -88,8 +90,10 @@ export default function App() {
       }
       return updated;
     });
-    // Switch to category of uploaded image
+    // Switch to category of uploaded/generated image & reset search so the new photo is visible
     setActiveCategory(newImage.category as ImageCategory);
+    setSearchQuery('');
+    setShowOnlyFavorites(false);
   }, []);
 
   // Filter images by search, category, and favorites
@@ -201,6 +205,7 @@ export default function App() {
             isFavoritesFilter={showOnlyFavorites}
             onResetFilters={handleResetFilters}
             onOpenUpload={() => setIsUploadOpen(true)}
+            onOpenAi={() => setIsAiGenerateOpen(true)}
           />
         ) : (
           <div>
@@ -298,6 +303,13 @@ export default function App() {
       <UploadModal
         isOpen={isUploadOpen}
         onClose={() => setIsUploadOpen(false)}
+        onAddImage={handleAddImage}
+      />
+
+      <AiGenerateModal
+        isOpen={isAiGenerateOpen}
+        prompt={searchQuery}
+        onClose={() => setIsAiGenerateOpen(false)}
         onAddImage={handleAddImage}
       />
     </div>
