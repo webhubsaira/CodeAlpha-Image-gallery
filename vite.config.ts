@@ -73,6 +73,7 @@ function apiDevPlugin(): Plugin {
         if (req.url && req.url.startsWith('/api/')) {
           const urlPath = req.url.split('?')[0];
 
+          // Parse POST/PUT JSON body
           if (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH') {
             const buffers: Uint8Array[] = [];
             for await (const chunk of req) {
@@ -86,6 +87,7 @@ function apiDevPlugin(): Plugin {
             }
           }
 
+          // Parse URL Query parameters
           const queryString = req.url.split('?')[1] || '';
           const urlParams = new URLSearchParams(queryString);
           const queryObj: Record<string, string> = {};
@@ -94,32 +96,61 @@ function apiDevPlugin(): Plugin {
           });
           (req as any).query = queryObj;
 
+          // Adapt raw http.ServerResponse to Express-like response helpers
+          const enhancedRes = res as any;
+          if (!enhancedRes.status) {
+            enhancedRes.status = function (code: number) {
+              enhancedRes.statusCode = code;
+              return enhancedRes;
+            };
+          }
+          if (!enhancedRes.json) {
+            enhancedRes.json = function (data: any) {
+              if (!enhancedRes.headersSent) {
+                enhancedRes.setHeader('Content-Type', 'application/json');
+              }
+              enhancedRes.end(JSON.stringify(data));
+              return enhancedRes;
+            };
+          }
+          if (!enhancedRes.send) {
+            enhancedRes.send = function (data: any) {
+              if (typeof data === 'object') {
+                if (!enhancedRes.headersSent) {
+                  enhancedRes.setHeader('Content-Type', 'application/json');
+                }
+                enhancedRes.end(JSON.stringify(data));
+              } else {
+                enhancedRes.end(data);
+              }
+              return enhancedRes;
+            };
+          }
+
           try {
             if (urlPath === '/api/images' || urlPath === '/api/images/') {
               const handler = (await import('./api/images')).default;
-              await handler(req as any, res as any);
+              await handler(req as any, enhancedRes);
               return;
             }
             if (urlPath === '/api/favorites' || urlPath === '/api/favorites/') {
               const handler = (await import('./api/favorites')).default;
-              await handler(req as any, res as any);
+              await handler(req as any, enhancedRes);
               return;
             }
             if (urlPath === '/api/likes' || urlPath === '/api/likes/') {
               const handler = (await import('./api/likes')).default;
-              await handler(req as any, res as any);
+              await handler(req as any, enhancedRes);
               return;
             }
             if (urlPath === '/api/init' || urlPath === '/api/init/') {
               const handler = (await import('./api/init')).default;
-              await handler(req as any, res as any);
+              await handler(req as any, enhancedRes);
               return;
             }
           } catch (err) {
             console.error('Local API dev plugin error:', err);
-            res.statusCode = 500;
-            res.setHeader('Content-Type', 'application/json');
-            res.end(JSON.stringify({ error: String(err) }));
+            enhancedRes.status(500).json({ error: String(err) });
             return;
           }
         }
