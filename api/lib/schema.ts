@@ -1,5 +1,4 @@
 import { query, isDbConfigured } from './db';
-import { INITIAL_IMAGES } from '../../src/data/initialImages';
 
 export const initDbSchema = async (): Promise<{ success: boolean; message: string }> => {
   if (!isDbConfigured()) {
@@ -7,7 +6,7 @@ export const initDbSchema = async (): Promise<{ success: boolean; message: strin
   }
 
   try {
-    // 1. Create images table
+    // 1. Create images table if not exists
     await query(`
       CREATE TABLE IF NOT EXISTS images (
         id VARCHAR(255) PRIMARY KEY,
@@ -37,7 +36,7 @@ export const initDbSchema = async (): Promise<{ success: boolean; message: strin
       ALTER TABLE images ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
     `);
 
-    // 2. Create favorites table
+    // 2. Create favorites table if not exists
     await query(`
       CREATE TABLE IF NOT EXISTS favorites (
         id SERIAL PRIMARY KEY,
@@ -46,38 +45,7 @@ export const initDbSchema = async (): Promise<{ success: boolean; message: strin
       );
     `);
 
-    // 3. Seed initial images if table is empty
-    const countResult = await query(`SELECT COUNT(*) FROM images;`);
-    const count = parseInt(countResult.rows[0].count, 10);
-
-    if (count === 0) {
-      for (const img of INITIAL_IMAGES) {
-        await query(
-          `INSERT INTO images (
-            id, title, url, thumbnail_url, category, photographer, photographer_url, aspect_ratio, tags, likes, location, date, is_custom
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-          ON CONFLICT (id) DO NOTHING;`,
-          [
-            img.id,
-            img.title,
-            img.url,
-            img.thumbnailUrl,
-            img.category,
-            img.photographer,
-            img.photographerUrl || null,
-            img.aspectRatio,
-            img.tags,
-            img.likes,
-            img.location || null,
-            img.date,
-            false,
-          ]
-        );
-      }
-      return { success: true, message: 'Database initialized and seeded with initial images.' };
-    }
-
-    return { success: true, message: 'Database schema already exists and initialized.' };
+    return { success: true, message: 'Database schema ready.' };
   } catch (error) {
     const errMessage = error instanceof Error ? error.message : String(error);
     return { success: false, message: `Database init failed: ${errMessage}` };
