@@ -6,12 +6,12 @@ dotenv.config();
 const { Pool } = pg;
 
 const getConnectionString = (): string => {
-  return (
+  const url =
     process.env.POSTGRES_URL ||
     process.env.DATABASE_URL ||
     process.env.POSTGRES_URL_NON_POOLING ||
-    ''
-  );
+    '';
+  return url.trim();
 };
 
 export const isDbConfigured = (): boolean => {
@@ -31,7 +31,7 @@ export const getPool = (): pg.Pool => {
       ssl: isLocalhost ? false : { rejectUnauthorized: false },
       max: 10,
       idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 5000,
+      connectionTimeoutMillis: 10000,
     });
   }
   return poolInstance;

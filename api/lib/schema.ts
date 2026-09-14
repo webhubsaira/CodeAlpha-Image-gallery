@@ -25,6 +25,16 @@ export const initDbSchema = async (): Promise<{ success: boolean; message: strin
         is_custom BOOLEAN DEFAULT false,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
+
+      ALTER TABLE images ADD COLUMN IF NOT EXISTS thumbnail_url TEXT;
+      ALTER TABLE images ADD COLUMN IF NOT EXISTS photographer_url TEXT;
+      ALTER TABLE images ADD COLUMN IF NOT EXISTS aspect_ratio VARCHAR(50) DEFAULT 'landscape';
+      ALTER TABLE images ADD COLUMN IF NOT EXISTS tags TEXT[] DEFAULT '{}';
+      ALTER TABLE images ADD COLUMN IF NOT EXISTS likes INTEGER DEFAULT 0;
+      ALTER TABLE images ADD COLUMN IF NOT EXISTS location TEXT;
+      ALTER TABLE images ADD COLUMN IF NOT EXISTS date VARCHAR(50) DEFAULT '';
+      ALTER TABLE images ADD COLUMN IF NOT EXISTS is_custom BOOLEAN DEFAULT false;
+      ALTER TABLE images ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
     `);
 
     // 2. Create favorites table
