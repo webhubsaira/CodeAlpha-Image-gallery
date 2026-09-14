@@ -26,7 +26,17 @@ export default async function handler(req: Request, res: Response) {
   }
 
   try {
-    const { imageId } = req.body || {};
+    let body = req.body;
+    if (typeof body === 'string') {
+      try {
+        body = JSON.parse(body);
+      } catch {
+        res.status(400).json({ error: 'Invalid JSON body' });
+        return;
+      }
+    }
+
+    const { imageId } = body || {};
     if (!imageId) {
       res.status(400).json({ error: 'imageId required' });
       return;

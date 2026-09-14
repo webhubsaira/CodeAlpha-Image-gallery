@@ -39,16 +39,35 @@ export default async function handler(req: Request, res: Response) {
     }
 
     if (req.method === 'POST') {
-      const { imageId } = req.body || {};
+      let body = req.body;
+      if (typeof body === 'string') {
+        try {
+          body = JSON.parse(body);
+        } catch {
+          res.status(400).json({ error: 'Invalid JSON body' });
+          return;
+        }
+      }
+
+      const { imageId } = body || {};
       if (!imageId) {
         res.status(400).json({ error: 'imageId required' });
         return;
       }
 
-      // Check if already in favorites
-      const checkResult = await query(`SELECT id FROM favorites WHERE image_id = $1;`, [imageId]);
-      let isFavorite = false;
+      let checkResult;
+      try {
+        checkResult = await query(`SELECT id FROM favorites WHERE image_id = $1;`, [imageId]);
+      } catch (dbErr: any) {
+        if (dbErr?.code === '42P01') {
+          await initDbSchema();
+          checkResult = await query(`SELECT id FROM favorites WHERE image_id = $1;`, [imageId]);
+        } else {
+          throw dbErr;
+        }
+      }
 
+      let isFavorite = false;
       if (checkResult.rows.length > 0) {
         // Remove from favorites
         await query(`DELETE FROM favorites WHERE image_id = $1;`, [imageId]);

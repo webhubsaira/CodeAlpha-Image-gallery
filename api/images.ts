@@ -65,6 +65,16 @@ export default async function handler(req: Request, res: Response) {
 
     // POST /api/images - Insert a new photo
     if (req.method === 'POST') {
+      let body = req.body;
+      if (typeof body === 'string') {
+        try {
+          body = JSON.parse(body);
+        } catch {
+          res.status(400).json({ error: 'Invalid JSON body' });
+          return;
+        }
+      }
+
       const {
         id,
         title,
@@ -79,41 +89,51 @@ export default async function handler(req: Request, res: Response) {
         location,
         date,
         isCustom,
-      } = req.body || {};
+      } = body || {};
 
       if (!id || !title || !url) {
         res.status(400).json({ error: 'Missing required image fields (id, title, url)' });
         return;
       }
 
-      await query(
-        `INSERT INTO images (
-          id, title, url, thumbnail_url, category, photographer, photographer_url, aspect_ratio, tags, likes, location, date, is_custom
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-        ON CONFLICT (id) DO UPDATE SET
-          title = EXCLUDED.title,
-          url = EXCLUDED.url,
-          thumbnail_url = EXCLUDED.thumbnail_url,
-          category = EXCLUDED.category,
-          photographer = EXCLUDED.photographer,
-          tags = EXCLUDED.tags,
-          likes = EXCLUDED.likes;`,
-        [
-          id,
-          title,
-          url,
-          thumbnailUrl || url,
-          category || 'Minimal',
-          photographer || 'User',
-          photographerUrl || null,
-          aspectRatio || 'landscape',
-          tags || [],
-          likes || 0,
-          location || null,
-          date || new Date().toISOString().split('T')[0],
-          isCustom !== undefined ? isCustom : true,
-        ]
-      );
+      const insertParams = [
+        id,
+        title,
+        url,
+        thumbnailUrl || url,
+        category || 'Minimal',
+        photographer || 'User',
+        photographerUrl || null,
+        aspectRatio || 'landscape',
+        Array.isArray(tags) ? tags : [],
+        typeof likes === 'number' ? likes : 0,
+        location || null,
+        date || new Date().toISOString().split('T')[0],
+        isCustom !== undefined ? isCustom : true,
+      ];
+
+      const insertQuery = `INSERT INTO images (
+        id, title, url, thumbnail_url, category, photographer, photographer_url, aspect_ratio, tags, likes, location, date, is_custom
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      ON CONFLICT (id) DO UPDATE SET
+        title = EXCLUDED.title,
+        url = EXCLUDED.url,
+        thumbnail_url = EXCLUDED.thumbnail_url,
+        category = EXCLUDED.category,
+        photographer = EXCLUDED.photographer,
+        tags = EXCLUDED.tags,
+        likes = EXCLUDED.likes;`;
+
+      try {
+        await query(insertQuery, insertParams);
+      } catch (dbErr: any) {
+        if (dbErr?.code === '42P01') {
+          await initDbSchema();
+          await query(insertQuery, insertParams);
+        } else {
+          throw dbErr;
+        }
+      }
 
       res.status(201).json({ success: true, message: 'Image saved to PostgreSQL', id });
       return;
