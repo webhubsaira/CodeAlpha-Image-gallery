@@ -1,6 +1,65 @@
 import type { Request, Response } from 'express';
-import { query, isDbConfigured } from './lib/db';
-import { initDbSchema } from './lib/schema';
+import pg from 'pg';
+
+const { Pool } = pg;
+
+const getConnectionString = (): string => {
+  let url =
+    process.env.POSTGRES_URL ||
+    process.env.DATABASE_URL ||
+    process.env.POSTGRES_URL_NON_POOLING ||
+    '';
+  url = url.replace(/^["']|["']$/g, '').trim();
+
+  if (url && !url.includes('localhost') && !url.includes('127.0.0.1') && !url.includes('sslmode=')) {
+    url += (url.includes('?') ? '&' : '?') + 'sslmode=require';
+  }
+
+  return url;
+};
+
+const isDbConfigured = (): boolean => {
+  return Boolean(getConnectionString());
+};
+
+let poolInstance: pg.Pool | null = null;
+
+const getPool = (): pg.Pool => {
+  if (!poolInstance) {
+    const connectionString = getConnectionString();
+    const isLocalhost =
+      connectionString.includes('localhost') || connectionString.includes('127.0.0.1');
+
+    poolInstance = new Pool({
+      connectionString,
+      ssl: isLocalhost ? false : { rejectUnauthorized: false },
+      max: 3,
+      idleTimeoutMillis: 10000,
+      connectionTimeoutMillis: 8000,
+    });
+
+    poolInstance.on('error', (err) => {
+      console.error('[pg pool error]:', err);
+      poolInstance = null;
+    });
+  }
+  return poolInstance;
+};
+
+const query = async (text: string, params?: (string | number | boolean | object | null)[]) => {
+  const pool = getPool();
+  return pool.query(text, params);
+};
+
+const ensureFavoritesTable = async () => {
+  await query(`
+    CREATE TABLE IF NOT EXISTS favorites (
+      id SERIAL PRIMARY KEY,
+      image_id VARCHAR(255) UNIQUE NOT NULL,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+};
 
 export default async function handler(req: Request, res: Response) {
   res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -30,7 +89,7 @@ export default async function handler(req: Request, res: Response) {
         return;
       } catch (dbErr: any) {
         if (dbErr?.code === '42P01') {
-          await initDbSchema();
+          await ensureFavoritesTable();
           res.status(200).json([]);
           return;
         }
@@ -60,7 +119,7 @@ export default async function handler(req: Request, res: Response) {
         checkResult = await query(`SELECT id FROM favorites WHERE image_id = $1;`, [imageId]);
       } catch (dbErr: any) {
         if (dbErr?.code === '42P01') {
-          await initDbSchema();
+          await ensureFavoritesTable();
           checkResult = await query(`SELECT id FROM favorites WHERE image_id = $1;`, [imageId]);
         } else {
           throw dbErr;
