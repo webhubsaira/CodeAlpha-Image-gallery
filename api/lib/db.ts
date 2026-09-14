@@ -11,7 +11,7 @@ const getConnectionString = (): string => {
     process.env.DATABASE_URL ||
     process.env.POSTGRES_URL_NON_POOLING ||
     '';
-  return url.trim();
+  return url.replace(/^["']|["']$/g, '').trim();
 };
 
 export const isDbConfigured = (): boolean => {
@@ -29,9 +29,14 @@ export const getPool = (): pg.Pool => {
     poolInstance = new Pool({
       connectionString,
       ssl: isLocalhost ? false : { rejectUnauthorized: false },
-      max: 10,
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 10000,
+      max: 3,
+      idleTimeoutMillis: 10000,
+      connectionTimeoutMillis: 4000,
+    });
+
+    poolInstance.on('error', (err) => {
+      console.error('[pg pool error]:', err);
+      poolInstance = null;
     });
   }
   return poolInstance;

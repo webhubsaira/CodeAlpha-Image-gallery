@@ -26,31 +26,41 @@ export default async function handler(req: Request, res: Response) {
   }
 
   try {
-    // Ensure DB schema exists
-    await initDbSchema();
-
     // GET /api/images - Fetch all images
     if (req.method === 'GET') {
-      const result = await query(
-        `SELECT 
-          id, 
-          title, 
-          url, 
-          thumbnail_url AS "thumbnailUrl", 
-          category, 
-          photographer, 
-          photographer_url AS "photographerUrl", 
-          aspect_ratio AS "aspectRatio", 
-          tags, 
-          likes, 
-          location, 
-          date, 
-          is_custom AS "isCustom" 
-        FROM images 
-        ORDER BY created_at DESC, id DESC;`
-      );
-      res.status(200).json(result.rows);
-      return;
+      try {
+        const result = await query(
+          `SELECT 
+            id, 
+            title, 
+            url, 
+            thumbnail_url AS "thumbnailUrl", 
+            category, 
+            photographer, 
+            photographer_url AS "photographerUrl", 
+            aspect_ratio AS "aspectRatio", 
+            tags, 
+            likes, 
+            location, 
+            date, 
+            is_custom AS "isCustom" 
+          FROM images 
+          ORDER BY created_at DESC, id DESC;`
+        );
+        res.status(200).json(result.rows);
+        return;
+      } catch (dbErr: any) {
+        if (dbErr?.code === '42P01') {
+          // Table doesn't exist yet, initialize once and retry
+          await initDbSchema();
+          const retryResult = await query(
+            `SELECT id, title, url, thumbnail_url AS "thumbnailUrl", category, photographer, photographer_url AS "photographerUrl", aspect_ratio AS "aspectRatio", tags, likes, location, date, is_custom AS "isCustom" FROM images ORDER BY created_at DESC, id DESC;`
+          );
+          res.status(200).json(retryResult.rows);
+          return;
+        }
+        throw dbErr;
+      }
     }
 
     // POST /api/images - Insert a new photo

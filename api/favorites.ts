@@ -22,13 +22,20 @@ export default async function handler(req: Request, res: Response) {
   }
 
   try {
-    await initDbSchema();
-
     if (req.method === 'GET') {
-      const result = await query(`SELECT image_id FROM favorites ORDER BY created_at ASC;`);
-      const favoriteIds = result.rows.map((r) => r.image_id);
-      res.status(200).json(favoriteIds);
-      return;
+      try {
+        const result = await query(`SELECT image_id FROM favorites ORDER BY created_at ASC;`);
+        const favoriteIds = result.rows.map((r) => r.image_id);
+        res.status(200).json(favoriteIds);
+        return;
+      } catch (dbErr: any) {
+        if (dbErr?.code === '42P01') {
+          await initDbSchema();
+          res.status(200).json([]);
+          return;
+        }
+        throw dbErr;
+      }
     }
 
     if (req.method === 'POST') {
